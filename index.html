@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gradion - AI Latent Space Explorer</title>
-
     <style>
         * {
             box-sizing: border-box;
@@ -16,13 +15,13 @@
         body {
             background-color: #0a0a0c;
             color: #e0e0e0;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
-            overflow: hidden;
+            flex-direction: row;
+            overflow-x: hidden;
         }
 
-        /* Left Sidebar : Controls */
-
+        /* Left Sidebar: Controls */
         .sidebar {
             width: 280px;
             background: #121218;
@@ -32,6 +31,7 @@
             flex-direction: column;
             gap: 20px;
             z-index: 10;
+            flex-shrink: 0;
         }
 
         h1 {
@@ -81,21 +81,21 @@
         }
 
         /* Center Canvas Area */
-
         .main-canvas-area {
             flex: 1;
             position: relative;
             background: radial-gradient(circle at center, #151522 0%, #0a0a0c 100%);
+            min-height: 450px;
         }
 
         canvas {
             display: block;
             width: 100%;
             height: 100%;
+            touch-action: none; /* Prevents screen scrolling while interacting with canvas */
         }
 
-        /* Right Sidebar : Meaningful Inspector Panel */
-
+        /* Right Sidebar: Meaningful Inspector Panel */
         .inspector-panel {
             width: 320px;
             background: #0e0e14;
@@ -105,6 +105,7 @@
             flex-direction: column;
             gap: 15px;
             z-index: 10;
+            flex-shrink: 0;
         }
 
         .panel-title {
@@ -150,16 +151,43 @@
             border-left: 3px solid #00f2fe;
             line-height: 1.4;
         }
+
+        /* ---------------------------------------------------
+           MOBILE RESPONSIVE LAYOUT (Screens under 850px)
+        --------------------------------------------------- */
+        @media (max-width: 850px) {
+            body {
+                flex-direction: column;
+                overflow-y: auto;
+                height: auto;
+            }
+
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #222230;
+            }
+
+            .main-canvas-area {
+                width: 100%;
+                height: 60vh;
+                min-height: 380px;
+            }
+
+            .inspector-panel {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid #222230;
+            }
+        }
     </style>
 </head>
 <body>
 
     <!-- Left Control Panel -->
-
     <div class="sidebar">
         <div>
             <h1>GRADION</h1>
-            <br>
             <div class="tagline">Neural Latent Space Visualizer</div>
         </div>
 
@@ -181,13 +209,11 @@
     </div>
 
     <!-- Center Interactive Stage -->
-
     <div class="main-canvas-area">
         <canvas id="neuralCanvas"></canvas>
     </div>
 
     <!-- Right Inspector Panel -->
-
     <div class="inspector-panel">
         <div class="panel-title">Active Vector Inspector</div>
         
@@ -227,12 +253,11 @@
         </div>
 
         <div class="instructions">
-            <strong>How to use:</strong> Move your mouse across the canvas to interact with the gravitational field. Hover directly over any glowing node to inspect its real-time latent coordinates and similarity score.
+            <strong>How to use:</strong> Move your mouse or drag your finger across the canvas to interact with the gravitational field. Hover or tap near any glowing node to inspect its real-time latent coordinates.
         </div>
     </div>
 
     <script>
-
         const canvas = document.getElementById('neuralCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -244,6 +269,8 @@
         window.addEventListener('resize', resizeCanvas);
 
         const mouse = { x: null, y: null, radius: 160 };
+
+        // Mouse Listeners
         window.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
             mouse.x = e.clientX - rect.left;
@@ -255,8 +282,20 @@
             mouse.y = null;
         });
 
-        // Interactive control variables
+        // Touch Listeners for Mobile devices
+        canvas.addEventListener('touchmove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            mouse.x = touch.clientX - rect.left;
+            mouse.y = touch.clientY - rect.top;
+        });
 
+        canvas.addEventListener('touchend', () => {
+            mouse.x = null;
+            mouse.y = null;
+        });
+
+        // Interactive control variables
         let temperature = 0.7;
         let targetNodeCount = 60;
 
@@ -276,17 +315,12 @@
             }
 
             update() {
-
-                // Temperature affects overall movement speed/jitter
-
                 let speedFactor = temperature;
                 this.x += this.baseVx * speedFactor;
                 this.y += this.baseVy * speedFactor;
 
                 if (this.x < 0 || this.x > canvas.width) this.baseVx *= -1;
                 if (this.y < 0 || this.y > canvas.height) this.baseVy *= -1;
-
-                // Mouse gravity field
 
                 if (mouse.x !== null && mouse.y !== null) {
                     let dx = mouse.x - this.x;
@@ -319,8 +353,6 @@
         }
         initNodes();
 
-        // UI Element References for inspection
-
         const inspectId = document.getElementById('inspectId');
         const inspectCoords = document.getElementById('inspectCoords');
         const inspectSim = document.getElementById('inspectSim');
@@ -332,34 +364,25 @@
             let closestNode = null;
             let minDistanceToMouse = Infinity;
 
-            // Update and draw nodes
-
             nodes.forEach(node => {
                 node.update();
-
-                // Check if mouse is hovering over this node
 
                 if (mouse.x !== null && mouse.y !== null) {
                     let mdx = mouse.x - node.x;
                     let mdy = mouse.y - node.y;
                     let mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-                    if (mDist < 25 && mDist < minDistanceToMouse) {
+                    if (mDist < 35 && mDist < minDistanceToMouse) {
                         minDistanceToMouse = mDist;
                         closestNode = node;
                     }
                 }
             });
 
-            // Update Right Panel Inspector based on hover state
-
             if (closestNode) {
                 closestNode.draw(true);
                 inspectId.textContent = `EMB_ID #${closestNode.id}`;
                 inspectCoords.textContent = `[ ${Math.round(closestNode.x)}, ${Math.round(closestNode.y)} ]`;
-
-                // Simulated cosine similarity based on distance
-
-                let simScore = (1 - (minDistanceToMouse / 25)).toFixed(3);
+                let simScore = (1 - (minDistanceToMouse / 35)).toFixed(3);
                 inspectSim.textContent = simScore;
                 inspectCluster.textContent = closestNode.cluster;
             } else {
@@ -370,8 +393,6 @@
                 
                 nodes.forEach(node => node.draw(false));
             }
-
-            // Draw network connectivity lines
 
             for (let i = 0; i < nodes.length; i++) {
                 for (let j = i + 1; j < nodes.length; j++) {
@@ -388,8 +409,6 @@
                         ctx.stroke();
                     }
                 }
-
-                // Mouse tether lines
 
                 if (mouse.x !== null && mouse.y !== null) {
                     const mdx = nodes[i].x - mouse.x;
@@ -410,8 +429,6 @@
         }
         animate();
 
-        // Slider controls logic
-
         const tempSlider = document.getElementById('tempSlider');
         const tempVal = document.getElementById('tempVal');
         tempSlider.addEventListener('input', (e) => {
@@ -426,7 +443,6 @@
             nodeVal.textContent = targetNodeCount;
             initNodes();
         });
-        
     </script>
 </body>
 </html>
